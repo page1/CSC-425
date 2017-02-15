@@ -31,7 +31,6 @@ data_plus_fields <- add_rolling_stats(insulin_bg_and_fitness) %>%
 write.csv(data_plus_fields, file = "data_set.csv")
 
 # Analyse Data
-# LAN was here
 #Scott Was Here
 
 plot_omnipod_type_frequency(omni_pod)
