@@ -46,7 +46,8 @@ munge_omni_pod <- function(omni_pod_raw){
     column_names_to_lower_case() %>%
     select(-hidden) %>%
     filter(!(type %in% c("Pump Alarm", "State Of Health", "Notes"))) %>%
-    mutate(datetime = parse_date_time(paste(date, time), c("mdy hm", "mdy")) + ifelse(grepl("PM", time), dhours(12), dhours(0))) %>%
+    mutate(datetime = paste(date, ifelse(time == "", "11:59 PM", time)),
+           datetime = mdy_hm(datetime)) %>%
     split_units() %>%
     mutate(value = as.numeric(value)) %>%
     mutate(extend_amount = ifelse(grepl("Bolus-Extended Meal Bolus - ", description, fixed = T), value, 0),
@@ -140,13 +141,14 @@ join_fitbit_with_dexcom_predictions <- function(fitbit, dexcom) {
 
 munge_insulin_bg_fitness <- function(fitbit_dexcom, omni_pod, burn_rate = 0.98){
   lol <- omni_pod %>%
+    ungroup() %>%
     mutate(extended_till = datetime + bolus_extended_for_minutes) %>%
     select(extended_till, bolus_extended_units) %>%
     filter(!is.na(bolus_extended_units)) %>%
     rename(datetime = extended_till,
            bolus_insulin_units = bolus_extended_units)
   
-  boom <- rbind_all(list(omni_pod, lol)) %>%
+  boom <- bind_rows(omni_pod, lol) %>%
     select(-contains("extended"), -contains("summary")) %>%
     filter(!is.na(basal_insulin_hourly_rate) |
            !is.na(bolus_insulin_units) |
@@ -154,10 +156,11 @@ munge_insulin_bg_fitness <- function(fitbit_dexcom, omni_pod, burn_rate = 0.98){
            !is.na(meal_approx_carbs))
   
   ddd <- boom %>%
+    ungroup() %>%
     mutate(datetime = as.POSIXct(floor(as.numeric(datetime) / (5 * 60)) * 5 * 60, origin = "1970-01-01",tz = "GMT")) %>%
     arrange(datetime) %>%
     group_by(datetime) %>%
-    summarize(basal_insulin_hourly_rate = last(basal_insulin_hourly_rate), #Note: might introduce null
+    summarize(basal_insulin_hourly_rate = last(basal_insulin_hourly_rate, order_by = !is.na(basal_insulin_hourly_rate)), #Note: might introduce null
               bolus_insulin_units = sum(bolus_insulin_units, na.rm = T),
               glucose = mean(glucose, na.rm = T),
               meal_approx_carbs = sum(meal_approx_carbs, na.rm = T))
