@@ -4,6 +4,11 @@ source("munge.R")
 source("analyze.R")
 
 library(dplyr)
+library(lubridate)
+library(fBasics)
+library(forecast)
+library(lmtest)
+library(fUnitRoots)
 
 # Get Data
 omni_pod_raw <- get_omnipod_data()
@@ -28,16 +33,22 @@ insulin_bg_and_fitness <- munge_insulin_bg_fitness(fitbit_dexcom, omni_pod, burn
 data_plus_fields <- add_rolling_stats(insulin_bg_and_fitness) %>%
   add_categorical_fields()
 
-write.csv(data_plus_fields, file = "data_set.csv")
+data_for_ts <- select(data_plus_fields, datetime, bolus_burndown, total_insulin_burndown, acting_carbs, predicted_bg, contains("steps_sum_past"), low_bg, high_bg, dawn_phenomenon)
 
-# Analyse Data
+library(zoo)
+library(xts)
 
-plot_omnipod_type_frequency(omni_pod)
-hist_bolus(omni_pod)
-hist_fitbit(fitbit)
-corrplot_fitbit(fitbit)
+xts_data <- xts(select(data_for_ts, -datetime), order.by = data_for_ts$datetime)
+filled_data <- na.approx(xts_data)
 
-dd <- lm(predicted_bg_lead_1hour ~ predicted_bg + acting_carbs + total_insulin_burndown +  steps_sum_next_1hour, data = data_plus_fields)
-summary(dd)
+write.csv(filled_data, 
+          file = "data_set.csv")
 
+plot(filled_data$predicted_bg)
 
+Acf(filled_data$predicted_bg)
+Acf(diff(filled_data$predicted_bg))
+plot(diff(filled_data$predicted_bg))
+hist(diff(filled_data$predicted_bg))
+m1 <- auto.arima(filled_data$predicted_bg, ic = 'bic', trace = T)
+Acf(m1$residuals)
