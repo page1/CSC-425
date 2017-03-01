@@ -1,9 +1,4 @@
 # Use this to run things from the top level
-source("get.R")
-source("munge.R")
-source("analyze.R")
-
-library(dplyr)
 library(lubridate)
 library(fBasics)
 library(forecast)
@@ -11,6 +6,12 @@ library(lmtest)
 library(fUnitRoots)
 library(zoo)
 library(xts)
+
+source("get.R")
+source("munge.R")
+source("analyze.R")
+
+
 
 # Get Data
 omni_pod_raw <- get_omnipod_data()
