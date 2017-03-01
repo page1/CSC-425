@@ -9,6 +9,8 @@ library(fBasics)
 library(forecast)
 library(lmtest)
 library(fUnitRoots)
+library(zoo)
+library(xts)
 
 # Get Data
 omni_pod_raw <- get_omnipod_data()
@@ -34,9 +36,6 @@ data_plus_fields <- add_rolling_stats(insulin_bg_and_fitness) %>%
   add_categorical_fields()
 
 data_for_ts <- select(data_plus_fields, datetime, bolus_burndown, total_insulin_burndown, acting_carbs, predicted_bg, contains("steps_sum_past"), low_bg, high_bg, dawn_phenomenon)
-
-library(zoo)
-library(xts)
 
 xts_data <- xts(select(data_for_ts, -datetime), order.by = data_for_ts$datetime)
 filled_data <- na.approx(xts_data)
