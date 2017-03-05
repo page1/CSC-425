@@ -94,6 +94,48 @@ trends <- plot_grid(bg, carb, insulin, steps,
           label_size = 14)
 ggsave("trends.png", trends, width = 8, height = 8)
 
+hist(filled_data$steps_sum_past_1hour)
+hist(log(filled_data$steps_sum_past_1hour))
+
+# Help finding tranforms to make data normal
+find_lambda <- MASS::boxcox(lm(predicted_bg~1,data=data.frame(filled_data)))
+find_lambda <- find_lambda$x[which(find_lambda$y == max(find_lambda$y))]
+
+find_lambda <- MASS::boxcox(lm(total_insulin_burndown~1/sqrt(predicted_bg),data=data.frame(filled_data)))
+find_lambda <- find_lambda$x[which(find_lambda$y == max(find_lambda$y))]
+
+find_lambda <- MASS::boxcox(lm(acting_carbs~1/sqrt(predicted_bg),data=data.frame(filled_data)))
+find_lambda <- find_lambda$x[which(find_lambda$y == max(find_lambda$y))]
+
+find_lambda <- MASS::boxcox(lm(steps_sum_past_1hour + 1~1/sqrt(predicted_bg),data=data.frame(filled_data)))
+find_lambda <- find_lambda$x[which(find_lambda$y == max(find_lambda$y))]
+
+
+filled_data$log_total_insulin_burndown <- log(filled_data$total_insulin_burndown)
+filled_data$log_steps_sum_past_1hour <- log(filled_data$steps_sum_past_1hour + 1)
+
+hist(filled_data$total_insulin_burndown,
+     main = "Histogram of Insulin Burndown",
+     xlab = "Insulin Burndown")
+hist(filled_data$log_total_insulin_burndown,
+     main = "Histogram of Log Insulin Burndown",
+     xlab = "Log(Insulin Burndown)")
+
+hist(filled_data$steps_sum_past_1hour,
+     main = "Histogram of Steps Past Hour",
+     xlab = "Steps Past Hour")
+hist(filled_data$log_steps_sum_past_1hour,
+     main = "Histogram of Log Steps Past Hour",
+     xlab = "Log(Steps Past Hour)")
+
+hist(filled_data$predicted_bg,
+     main = "Histogram of BG",
+     xlab = "BG")
+hist(1/sqrt(filled_data$predicted_bg),
+     main = "Histogram of 1 / sqrt(BG)",
+     xlab = "1 / sqrt(BG)")
+
+
 xts_data_15_minute_filled <- aggregate(filled_data, time(filled_data) - as.numeric(time(filled_data)) %% (15*60), mean, na.rm = T)
 xts_data_30_minute_filled <- aggregate(filled_data, time(filled_data) - as.numeric(time(filled_data)) %% (30*60), mean, na.rm = T)
 
@@ -107,12 +149,12 @@ plot(xts_data_30_minute_filled$predicted_bg)
 
 
 
-Acf(log(filled_data$predicted_bg), lag.max = 12*24,
+Acf(log(filled_data$predicted_bg), lag.max = 12*24, na.action = na.pass,
     main = "24 Hour ACF of BG",
     xlab = "5 Minute Lags")
-Pacf(log(filled_data$predicted_bg), lag.max = 24) # suggestive of AR(3)
-Acf(diff(log(filled_data$predicted_bg)), lag.max = 12*24, plot = T) #first difference helps keep the acf from running away
-Pacf(diff(log(filled_data$predicted_bg)), lag.max = 24, plot = T) # suggestive of AR(2)
+Pacf(log(filled_data$predicted_bg), lag.max = 24, na.action = na.pass) # suggestive of AR(5)
+Acf(diff(log(filled_data$predicted_bg)), lag.max = 12*24, plot = T, na.action = na.pass) #first difference helps keep the acf from running away
+Pacf(diff(log(filled_data$predicted_bg)), lag.max = 24, plot = T, na.action = na.pass) # suggestive of AR(3)
 
 # continue investigation in scott-scratch-pad.R
 
