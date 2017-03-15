@@ -4,8 +4,12 @@ train <- head(xts_data_30_minute_filled, nrow(xts_data_30_minute_filled) * .95)
 test <- tail(xts_data_30_minute_filled, nrow(xts_data_30_minute_filled) * .05)
 adfTest(1/sqrt(train$predicted_bg), lags=24*2, type=c("c"))
 
-Acf(1/sqrt(train$predicted_bg), lag.max = 48, plot = T, na.action = na.pass)
-Pacf(1/sqrt(train$predicted_bg), lag.max = 48, plot = T, na.action = na.pass)
+Acf(1/sqrt(train$predicted_bg), 
+    lag.max = 48*2, plot = T, 
+    na.action = na.pass,
+    main = "Acf 30 minute 1/sqrt(BG Level)")
+Pacf(1/sqrt(train$predicted_bg), lag.max = 48*2, plot = T, na.action = na.pass,
+     main = "Pacf 30 minute 1/sqrt(BG Level)")
 
 Acf(diff(1/sqrt(train$predicted_bg), 9), lag.max = 48, plot = T, na.action = na.pass)
 Pacf(diff(1/sqrt(train$predicted_bg), 9), lag.max = 48, plot = T, na.action = na.pass)
@@ -14,9 +18,12 @@ find_lambda <- MASS::boxcox(lm(predicted_bg~acting_carbs + log_total_insulin_bur
 find_lambda <- find_lambda$x[which(find_lambda$y == max(find_lambda$y))]
 m3 <- Arima(train$predicted_bg, order = c(3,0,1), seasonal = list(order = c(1, 0, 0), period = 9),
       xreg=train[,c('acting_carbs', 'log_total_insulin_burndown', 'log_steps_sum_past_1hour')],
-      lambda = find_lambda)
+      lambda = -.5)
 m3
-Acf(m3$residuals, na.action = na.pass, lag.max = 24)
+Acf(m3$residuals, 
+    na.action = na.pass, 
+    lag.max = 24,
+    main = "Acf Residual SARIMA(3,0,1)(1,0,0)[9]")
 Pacf(m3$residuals, na.action = na.pass, lag.max = 24)
 coeftest(m3)
 Box.test(m3$residuals, lag=24, type='Ljung', fitdf=2)
@@ -29,7 +36,7 @@ axis.POSIXct(1, x=c(tail(index(train), 400), head(index(test), 48)), format="%b 
 
 full_model <- Arima(xts_data_30_minute_filled$predicted_bg, order = c(3,0,1), seasonal = list(order = c(1, 0, 0), period = 9),
             xreg=xts_data_30_minute_filled[,c('acting_carbs', 'log_total_insulin_burndown', 'log_steps_sum_past_1hour')],
-            lambda = find_lambda)
+            lambda = -.5)
 
 Acf(full_model$residuals, na.action = na.pass, lag.max = 24)
 Pacf(full_model$residuals, na.action = na.pass, lag.max = 24)
@@ -39,6 +46,7 @@ Box.test(full_model$residuals, lag=24, type='Ljung', fitdf=2)
 backtest_results <- backtest(full_model, xts_data_30_minute_filled$predicted_bg, round(nrow(xts_data_30_minute_filled) * .7), 1)
 
 quantile(filter(backtest_results, ahead_n == 1)$err, c(.1,.9), na.rm = T)
+quantile(filter(backtest_results, ahead_n == 1)$err, c(.05,.95), na.rm = T)
 hist(filter(backtest_results, ahead_n == 1)$err, 
      breaks = 30,
      main = "30 Minute Ahead Error",

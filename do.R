@@ -49,12 +49,14 @@ xts_data <- xts(select(data_for_ts, -datetime), order.by = data_for_ts$datetime)
 
 filled_data <- na.approx(na.trim(xts_data), maxgap = 6)
 
+adfTest(filled_data$predicted_bg, lags=60/5*24, type=c("c"))
+
 hist(filled_data$predicted_bg,
      main = "Histogram of BG Levels",
      xlab = "BG Level")
-hist(log(filled_data$predicted_bg),
-     main = "Histogram of Log Normal BG Levels",
-     xlab = "Log(BG Level)")
+hist(1/sqrt(filled_data$predicted_bg),
+     main = "Histogram of 1/sqrt(BG Levels)",
+     xlab = "1/sqrt(BG Level)")
 plot(filled_data$predicted_bg,
      main = "BG Over Time",
      ylab = "BG Level")
@@ -92,7 +94,7 @@ steps <- ggplot(aes(x = time, y = steps_sum_past_1hour), data = block_of_data) +
 trends <- plot_grid(bg, carb, insulin, steps, 
           align = "v", nrow = 4, rel_heights = c(5, 3, 3, 3),
           label_size = 14)
-ggsave("trends.png", trends, width = 8, height = 8)
+ggsave("trends.png", trends, width = 8, height = 10)
 
 hist(filled_data$steps_sum_past_1hour)
 hist(log(filled_data$steps_sum_past_1hour))
@@ -147,7 +149,40 @@ xts_data_30_minute_filled <- aggregate(filled_data, time(filled_data) - as.numer
 plot(xts_data_15_minute_filled$predicted_bg)
 plot(xts_data_30_minute_filled$predicted_bg)
 
+block_of_data <- data.frame(na.contiguous(xts_data_30_minute_filled))
+block_of_data$time <- ymd_hms(rownames(block_of_data))
+block_of_data$high_mid_low <- as.factor(ifelse(block_of_data$high_bg, 'High', ifelse(block_of_data$low_bg, 'Low', 'In Range')))
+bg <- ggplot(aes(x = time, y = 1/sqrt(predicted_bg), color = high_mid_low), data = block_of_data) +
+  geom_point() +
+  ylab("1/sqrt(BG Level)") +
+  xlab("Time") +
+  scale_colour_manual(values = c("red", "forest green", "blue")) +
+  theme(legend.position = c(0.9,0.8)) +
+  scale_x_datetime(breaks = date_breaks("6 hour"),
+                   labels = date_format("%b %d %I %p"))
+carb <- ggplot(aes(x = time, y = acting_carbs), data = block_of_data) +
+  geom_point() +
+  ylab("Avg(Active Carbs)") +
+  xlab("Time") +
+  scale_x_datetime(breaks = date_breaks("6 hour"),
+                   labels = date_format("%b %d %I %p"))
+insulin <- ggplot(aes(x = time, y = log_total_insulin_burndown), data = block_of_data) +
+  geom_point() +
+  ylab("log(Avg(Active Insulin))") +
+  xlab("Time") +
+  scale_x_datetime(breaks = date_breaks("6 hour"),
+                   labels = date_format("%b %d %I %p"))
+steps <- ggplot(aes(x = time, y = log_steps_sum_past_1hour), data = block_of_data) +
+  geom_point() +
+  ylab("log(Avg(Hour Of Steps))") +
+  xlab("Time") +
+  scale_x_datetime(breaks = date_breaks("6 hour"),
+                   labels = date_format("%b %d %I %p"))
 
+trends <- plot_grid(bg, carb, insulin, steps, 
+                    align = "v", nrow = 4, rel_heights = c(5, 3, 3, 3),
+                    label_size = 14)
+ggsave("trends_smooth_transform.png", trends, width = 8, height = 10)
 
 Acf(log(filled_data$predicted_bg), lag.max = 12*24, na.action = na.pass,
     main = "24 Hour ACF of BG",
